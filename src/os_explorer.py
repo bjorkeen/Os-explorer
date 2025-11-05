@@ -29,8 +29,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     #list
-    p = sub.add_parser("list", help="List directory entries")
-    p.add_argument("path", type=str, help="Path to list")  
+    p = sub.add_parser("list", help="List directory entries") 
+    p.add_argument("path", type=str, help="Path to list")
     p.add_argument("-a", "--all", action="store_true", help="Include hidden files (names starting with .)")
     p.set_defaults(func=cmd_list)
 
@@ -69,3 +69,41 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_du) 
 
     return parser
+
+"""
+Directory Listing Command (list)
+
+This Python function, cmd_list, acts like a simplified version of the Unix ls command. 
+It lists the contents of a directory specified by the user through command-line arguments. 
+The code first checks if the given path is a valid directory, printing an error and exiting if not. 
+It then retrieves and alphabetically sorts all entries in the directory (ignoring case). 
+Unless the --all flag is provided, hidden files (those starting with a dot) are skipped. 
+For each visible entry, the code prints its name, appending a slash (/) to directories for easy identification. 
+It also handles permission errors gracefully, displaying a clear message if access is denied.
+Overall, the function is a clean, beginner-friendly example of working with the os and argparse modules for basic filesystem operations.
+
+"""
+
+def cmd_list(args: argparse.Namespace) -> int: # exit code
+    path = args.path # directory to list
+    show_hidden = args.all # whether to show hidden files
+
+    if not os.path.isdir(path): # check if path is a directory
+        print(f"Error: {path} is not a directory", file=sys.stderr) # directory check error
+        return 1 # exit code for error
+    
+    try: # list directory contents
+        for name in sorted(os.listdir(path), key=str.lower): # sort entries case-insensitively
+            if not show_hidden and name.startswith('.'): # skip hidden files if not showing
+                continue
+
+            full = os.path.join(path, name) # full path
+
+            suffix = '/' if os.path.isdir(full) else "" # appends '/' after directory names to visually distinguish them
+            print(name + suffix)
+        return 0
+    
+    # If the program cannot read the directory (no permissions), it handles the exception and returns error code 1
+    except PermissionError: # handle permission errors
+        print(f"Error: Permission denied to access {path}", file=sys.stderr) # permission error message
+        return 1 # Permission error exit code
