@@ -107,3 +107,44 @@ def cmd_list(args: argparse.Namespace) -> int: # exit code
     except PermissionError: # handle permission errors
         print(f"Error: Permission denied to access {path}", file=sys.stderr) # permission error message
         return 1 # Permission error exit code
+
+
+
+
+"""
+File/dir info (info)
+
+This Python script defines two functions that work together to display detailed information about a file or directory.
+The first function, human_bytes, converts a file size given in bytes into a more readable format (like KB, MB, GB, or TB), rounding the result to one decimal place. 
+It does this by dividing the size by 1024 until it fits within a suitable unit.
+The second function, cmd_info, retrieves and prints key details about a specified file or directory using command-line arguments.
+It first checks whether the path exists, then uses os.stat() to obtain metadata such as size, type (file or directory), and timestamps for creation, last modification, and last access. 
+The size is displayed both in bytes and in human-readable form using human_bytes. 
+So, this code provides a clear and user-friendly way to inspect file system information while demonstrating the use of the os, sys, time, and argparse modules.
+
+"""
+
+def human_bytes(n:int) -> str: # converts bytes to human-readable format
+        units = ['B', 'KB', 'MB', 'GB', 'TB'] # size units
+        size = float(n) # initial size in bytes
+        for u in units: # iterate through units
+            if size < 1024.0 or u == units[-1]:
+                return f"{size:.1f} {u}"
+            size /= 1024.0
+
+def cmd_info(args: argparse.Namespace) -> int: # exit code
+        path = args.path
+
+        if not os.path.exists(path): # check if path exists
+            print(f"Error: {path} does not exist", file=sys.stderr)
+            return 1
+        st = os.stat(path) # get file/directory stats
+        kind = "Directory" if os.path.isdir(path) else "File" # determine type
+        print(f"Absolute Path: {os.path.abspath(path)}") # check absolute path
+        print(f"Type: {kind}")
+        print(f"Size: {human_bytes(st.st_size)} ({st.st_size} bytes)")
+        print(f"Last Modified: {time.ctime(st.st_mtime)}")
+        print(f"Last Accessed: {time.ctime(st.st_atime)}")
+        print(f"Created: {time.ctime(st.st_ctime)}")
+        return 0
+    
