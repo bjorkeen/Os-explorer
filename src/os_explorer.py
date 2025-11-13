@@ -147,4 +147,139 @@ def cmd_info(args: argparse.Namespace) -> int: # exit code
         print(f"Last Accessed: {time.ctime(st.st_atime)}")
         print(f"Created: {time.ctime(st.st_ctime)}")
         return 0
+
+"""
+Directory tree (tree)
+
+This Python function, cmd_tree, displays the directory structure of a given path in a tree-like format, similar to the Unix tree command.
+It begins by checking whether the provided path exists, printing an error if not.
+Inside the function, a nested helper function walk is defined to recursively explore subdirectories.
+It uses os.scandir() to efficiently iterate through entries in each folder, sorting them alphabetically in a case-insensitive manner.
+Each level of the tree is indented for clarity, and a forward slash (/) is added after directory names. If access to a folder is denied, the code prints a <permission denied> message instead of crashing.
+Also, the main part of the function prints the base directory (or file name if it’s a single file) and calls walk to display all nested contents.
+
+"""
+
+
+def cmd_tree(args: argparse.Namespace) -> int: 
+    root = args.path
+
+    if not os.path.exists(root): 
+        print(f"Error: {root} does not exist", file=sys.stderr)
+        return 1
     
+    def walk (path: str, depth: int) -> None: # recursive directory walk
+        try: 
+             with os.scandir(path) as it: # scan directory entries
+                for entry in sorted(it, key=lambda e: e.name.lower()): # sort entries case-insensitively
+                    indent = "   " * depth # indentation based on depth
+                    suffix = "/" if entry.is_dir() else "" # append '/' for directories
+                    print(f"{indent}{entry.name}{suffix}") 
+                    if entry.is_dir: # recurse into subdirectory
+                        walk(entry.path, depth + 1 )
+        except PermissionError: # handle permission errors
+            indent = "   " * depth # indentation based on depth
+            print(f"{indent}[Permission Denied]")
+    
+    #print the root name (folder) or the file itself
+    base = os.path.basename(os.path.abspath(root))
+    if os.path.isdir(root):
+        print(base)
+    else:
+        print(base + "/")
+        walk(root, 1)
+    return 0
+
+
+"""
+Search by name substring (search)
+
+cmd_search, allows users to search for files within a given directory and its subdirectories based on a partial name match
+It begins by checking whether the specified root path exists, displaying an error message if not.
+The function then uses os.walk() to recursively traverse the directory tree, examining each file name.
+If the lowercase version of the file name contains the provided search substring (needle), it constructs the file’s full path and retrieves its size using os.stat().
+Matching files are printed along with their sizes in bytes.
+If a file disappears during the search (causing a FileNotFoundError), the function safely skips it.
+
+"""
+
+def cmd_search(args: argparse.Namespace) -> int: 
+    root = args.path # root directory to start search
+    needle = args.name_substring.lower() # case-insensitive search
+    if not os.path.exists(root): 
+        print(f"Error: not found: {root}", file=sys.stderr)
+        return 1
+
+    for dirpath, dirnames, filenames in os.walk(root): # walk the directory tree
+        for name in filenames:
+            if needle in name.lower(): # check for substring match
+                full = os.path.join(dirpath, name) 
+                try:
+                    size = os.stat(full).st_size # get file size
+                except FileNotFoundError:
+                    continue
+                print(f"{full}\t{size} bytes")
+    return 0
+
+
+
+"""
+Safe delete (rm) - .trash + manifest and restore
+
+
+
+"""
+
+def ensure_trash(root: str) -> str:
+    trash = os.path.join(root, TRASH_NAME)
+    if not os.path.exists(trash):
+        os.makedirs(trash, exist_ok=True)
+    manifest = os.path.join(trash, MANIFEST_NAME)
+    if not os.path.exists(manifest):
+        with open(manifest, 'w', encoding='utf-8') as f:
+            f.write("# epoch\ttrashed_path\toriginal_abs_path\n")
+    return trash
+
+def cmd_rm(args: argparse.Namespace) -> int:
+    target = args.path
+    if not os.path.exists(target):
+        print(f"Error: not found: {target}", file=sys.stderr)
+        return 1
+    
+    root = os.path.abspath(args.root or os.getcwd())
+    trash = ensure_trash(root)
+
+    epoch = int(time.time())
+    base = os.path.basename(target.rstrip(os.sep))
+    trashed_name = f"{epoch}_{base}"
+    dst = os.path.join(trash, trashed_name)
+
+    try:
+        #os.rename moves files across the same filesystem; simple and fast
+        os.rename(target, dst)
+    except Exception as e:
+        print(f"Error: could not move to trash: {e}", file=sys.stderr)
+        return 1
+    
+    manifest = os.path.join(trash, MANIFEST_NAME)
+    with open(manifest, 'a', encoding='utf-8') as f:
+        f.write(f"{epoch}\t{trashed_name}\t{os.path.abspath(target)}\n")
+
+    print(f"Moved to trash: {dst}")
+    return 0 
+
+def cmd_restore(args: argparse.Namespace) -> int:
+    root = os.path.abspath(args.root or os.getcwd())
+    trash = ensure_trash(root)
+    manifest = os.path.join(trash, MANIFEST_NAME)
+
+    if not os.path.exists(manifest):
+        print("Nothing to restore.")
+        return 0
+
+    name_tail = args.name #filename only (what the user remembers)
+    lines = []
+    with open(manifest, 'r', encoding='utf-8') as f:
+        for ln in f:
+            if ln.strip() and not ln.startswith('#'):
+                lines.append(ln.strip())
