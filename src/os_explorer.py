@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(func=cmd_tree)
 
     #search
-    p.sub.add_parser("search", help="Find files whose names contain a given substring")
+    p = sub.add_parser("search", help="Find files whose names contain a given substring")
     p.add_argument("path", type=str, help="Where to start searching")
     p.add_argument("name_substring", type=str, help="Substring to search for in file names")
     p.set_defaults(func=cmd_search)
@@ -316,3 +316,75 @@ def cmd_restore(args: argparse.Namespace) -> int: # restore from trash
     
     print(f"No trashed item ending with '{name_tail}' found.") 
     return 0 
+
+
+"""
+Disk usage (du)
+"""
+
+def dir_size_bytes(path: str) -> int: # calculate total size of directory
+    total = 0 
+    for dirpath, dirnames, filenames in os.walk(path):
+        for name in filenames:
+            full = os.path.join(dirpath, name)
+            try:
+                total += os.stat(full).st_size
+            except FileNotFoundError:
+                pass
+            except PermissionError:
+                pass
+    return total
+
+def cmd_du(args: argparse.Namespace) -> int: # disk usage
+    path = args.path
+    include_hidden = args.all
+
+    if not os.path.exists(path): #if path does not exist
+        print(f"Error: not found: {path}", file=sys.stderr)
+        return 1
+
+    if os.path.isfile(path): #if single file, just show its size
+        size = os.stat(path).st_size
+        print(f"{human_bytes(size)}\t{size} bytes\t{path}")
+        return 0
+    try:
+        items = sorted(os.listdir(path), key=str.lower)
+    except PermissionError:
+        print("Error: Permission denied to access", file=sys.stderr)
+        return 1
+
+    rows = [] #list of (size, path) tuples
+    for name in items: # iterate directory entries
+        if not include_hidden and name.startswith('.'): # skip hidden files if not showing
+            continue
+        full = os.path.join(path, name) 
+        if os.path.isfile(full):
+            sz = dir_size_bytes(full) # get file size
+        else:
+            try:
+                sz = os.stat(full).st_size # get directory size
+            except (FileNotFoundError, PermissionError): 
+                sz = 0
+        rows.append((sz, full)) # append size and path
+
+    for sz, full in sorted(rows, key=lambda t: t[0], reverse=True):
+        print(f"{full}\t{sz} ({human_bytes(sz)})")
+
+    grand = dir_size_bytes(path)
+    print(f"TOTAL\t{grand} ({human_bytes(grand)})")
+    return 0 
+
+
+
+"""
+Main
+"""
+
+
+def main(argv=None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)  
+    return args.func(args) 
+
+if __name__ == "__main__":
+    sys.exit(main())
