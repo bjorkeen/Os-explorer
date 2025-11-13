@@ -226,33 +226,38 @@ def cmd_search(args: argparse.Namespace) -> int:
 """
 Safe delete (rm) - .trash + manifest and restore
 
-
+This set of functions implements a simple “trash” system with restore.
+ensure_trash(root) creates a hidden .trash folder (named by TRASH_NAME) under root and a manifest file (named by MANIFEST_NAME) if they don’t exist, writing a header line once.
+cmd_rm acts like a safe delete: it validates the target path, figures out the trash location under args.root (or the current working directory), builds a timestamped name (<epoch>__<basename>), moves the file into .trash with os.rename (fast on the same filesystem), and appends a tab-separated record to the manifest: epoch, trashed path, and original absolute path.
+cmd_restore scans the manifest from newest to oldest, looking for an entry whose original path ends with the user-provided name;
+if the original location is already occupied, it appends _restored (preserving the extension) to avoid overwriting, then moves the trashed file back.
+Throughout, errors (missing paths, missing trashed file, permission or rename issues) are handled with clear messages, making the workflow robust and reversible.
 
 """
 
-def ensure_trash(root: str) -> str:
-    trash = os.path.join(root, TRASH_NAME)
+def ensure_trash(root: str) -> str: # ensure .trash and manifest exist
+    trash = os.path.join(root, TRASH_NAME) #path to .trash folder
     if not os.path.exists(trash):
-        os.makedirs(trash, exist_ok=True)
-    manifest = os.path.join(trash, MANIFEST_NAME)
-    if not os.path.exists(manifest):
+        os.makedirs(trash, exist_ok=True) # create .trash directory
+    manifest = os.path.join(trash, MANIFEST_NAME) #path to manifest file
+    if not os.path.exists(manifest): # create manifest file with header
         with open(manifest, 'w', encoding='utf-8') as f:
-            f.write("# epoch\ttrashed_path\toriginal_abs_path\n")
-    return trash
+            f.write("# epoch\ttrashed_path\toriginal_abs_path\n") 
+    return trash # return path to .trash folder
 
-def cmd_rm(args: argparse.Namespace) -> int:
+def cmd_rm(args: argparse.Namespace) -> int: # safe delete (move to trash)
     target = args.path
     if not os.path.exists(target):
         print(f"Error: not found: {target}", file=sys.stderr)
         return 1
     
-    root = os.path.abspath(args.root or os.getcwd())
-    trash = ensure_trash(root)
+    root = os.path.abspath(args.root or os.getcwd()) # root for .trash
+    trash = ensure_trash(root) # ensure .trash exists
 
-    epoch = int(time.time())
-    base = os.path.basename(target.rstrip(os.sep))
+    epoch = int(time.time()) # current timestamp
+    base = os.path.basename(target.rstrip(os.sep)) # base name of target
     trashed_name = f"{epoch}_{base}"
-    dst = os.path.join(trash, trashed_name)
+    dst = os.path.join(trash, trashed_name) # destination in .trash
 
     try:
         #os.rename moves files across the same filesystem; simple and fast
@@ -260,17 +265,16 @@ def cmd_rm(args: argparse.Namespace) -> int:
     except Exception as e:
         print(f"Error: could not move to trash: {e}", file=sys.stderr)
         return 1
-    
-    manifest = os.path.join(trash, MANIFEST_NAME)
+    manifest = os.path.join(trash, MANIFEST_NAME) 
     with open(manifest, 'a', encoding='utf-8') as f:
-        f.write(f"{epoch}\t{trashed_name}\t{os.path.abspath(target)}\n")
+        f.write(f"{epoch}\t{trashed_name}\t{os.path.abspath(target)}\n") # log to manifest
 
     print(f"Moved to trash: {dst}")
     return 0 
 
-def cmd_restore(args: argparse.Namespace) -> int:
-    root = os.path.abspath(args.root or os.getcwd())
-    trash = ensure_trash(root)
+def cmd_restore(args: argparse.Namespace) -> int: # restore from trash
+    root = os.path.abspath(args.root or os.getcwd()) 
+    trash = ensure_trash(root) 
     manifest = os.path.join(trash, MANIFEST_NAME)
 
     if not os.path.exists(manifest):
@@ -283,3 +287,32 @@ def cmd_restore(args: argparse.Namespace) -> int:
         for ln in f:
             if ln.strip() and not ln.startswith('#'):
                 lines.append(ln.strip())
+    
+    #Search from the end (newest first)
+    for idx in range(len(lines) -1, -1, -1):
+        epoch_s, transhed_path, original_path = lines[idx].split("\t", 3)
+        if original_path.endswith(os.sep + name_tail) or os.path.basename(original_path) == name_tail:
+            # if orgininal is occupied, add_restored to avoid overwirting 
+            dest = original_path
+            if os.path.exists(dest): # avoid overwriting existing file
+                head, tail = os.path.split(dest)
+                name, ext = (tail.rsplit('.', 1) + [""])[:2]
+                if ext:
+                    dest = os.path.join(head, f"{name}_restored.{ext}")
+                else:
+                    dest = os.path.join(head, f"{name}_restored")
+            
+            try: # move back from trash
+                os.rename(transhed_path, dest)
+            except FileNotFoundError: # trashed file missing
+                print("Sorry, the trashed file is missing.", file=sys.stderr)
+                return 1
+            except Exception as e: # other errors
+                print(f"Error during restore {e}", file=sys.stderr)
+                return 1
+            
+            print(f"Restored to: {dest}")
+            return 0 
+    
+    print(f"No trashed item ending with '{name_tail}' found.") 
+    return 0 
