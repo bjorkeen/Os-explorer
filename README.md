@@ -1,6 +1,6 @@
 # Os-explorer
 
-#Project for ESSD Masters
+# Project for ESSD Masters
 
 A program written in Python to explore files and folders using only the os module.
 
@@ -12,7 +12,7 @@ It lets you:
 *restore them later
 *check how much disk space folders use
 
-###Features:
+### Features:
 
 - list --> List the files in a directory (optionally include hidden files)
 - info --> Show size and timestamps for a file or folder
@@ -31,7 +31,7 @@ git clone https://github.com/bjorkeen/os-explorer.git
 cd os-explorer
 ```
 
-###Folder structure
+### Folder structure
 
 ```
 os-explorer/
@@ -40,14 +40,16 @@ os-explorer/
     └── os_explorer.py
 ```
 
-###Running the program
+### Running the program
+
 All commands follow this pattern:
 
 ```
 python3 -m src.os_explorer <command> [arguments]
 ```
 
-###Examples
+### Examples
+
 See all available commands:
 
 ```
