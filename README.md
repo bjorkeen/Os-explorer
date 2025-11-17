@@ -5,12 +5,13 @@
 A program written in Python to explore files and folders using only the os module.
 
 It lets you:
-*list and inspect files
-*print directory trees
-*search for files by name
-*move files safely to a “trash” instead of deleting them
-*restore them later
-*check how much disk space folders use
+
+- list and inspect files
+- print directory trees
+- search for files by name
+- move files safely to a “trash” instead of deleting them
+- restore them later
+- check how much disk space folders use
 
 ### Features:
 
@@ -22,7 +23,7 @@ It lets you:
 - restore --> Restore the most recently trashed file by name
 - du --> Show disk usage for a file or for all items in a directory
 
-###Get the code
+### Get the code
 
 - either cloned from GitHub
 
