@@ -241,7 +241,7 @@ def ensure_trash(root: str) -> str: # ensure .trash and manifest exist
         os.makedirs(trash, exist_ok=True) # create .trash directory
     manifest = os.path.join(trash, MANIFEST_NAME) #path to manifest file
     if not os.path.exists(manifest): # create manifest file with header
-        with open(manifest, 'w', encoding='utf-8') as f:
+        with open(manifest, 'a', encoding='utf-8') as f:
             f.write("# epoch\ttrashed_path\toriginal_abs_path\n") 
     return trash # return path to .trash folder
 
@@ -272,50 +272,59 @@ def cmd_rm(args: argparse.Namespace) -> int: # safe delete (move to trash)
     print(f"Moved to trash: {dst}")
     return 0 
 
-def cmd_restore(args: argparse.Namespace) -> int: # restore from trash
-    root = os.path.abspath(args.root or os.getcwd()) 
-    trash = ensure_trash(root) 
+def cmd_restore(args: argparse.Namespace) -> int:  # restore from trash
+    root = os.path.abspath(args.root or os.getcwd())
+    trash = ensure_trash(root)
     manifest = os.path.join(trash, MANIFEST_NAME)
 
     if not os.path.exists(manifest):
         print("Nothing to restore.")
         return 0
 
-    name_tail = args.name #filename only (what the user remembers)
+    name_tail = args.name  # filename only (what the user remembers)
     lines = []
-    with open(manifest, 'r', encoding='utf-8') as f:
+    with open(manifest, "r", encoding="utf-8") as f:
         for ln in f:
-            if ln.strip() and not ln.startswith('#'):
+            if ln.strip() and not ln.startswith("#"):
                 lines.append(ln.strip())
-    
-    #Search from the end (newest first)
-    for idx in range(len(lines) -1, -1, -1):
-        epoch_s, transhed_path, original_path = lines[idx].split("\t", 3)
+
+    # Search from the end (newest first)
+    for idx in range(len(lines) - 1, -1, -1):
+        parts = lines[idx].split("\t", 2)  # exactly 3 fields
+        if len(parts) != 3:
+            continue
+        epoch_s, trashed_path, original_path = parts
+
         if original_path.endswith(os.sep + name_tail) or os.path.basename(original_path) == name_tail:
-            # if orgininal is occupied, add_restored to avoid overwirting 
+            # If the original path is occupied, append _restored to avoid overwriting
             dest = original_path
-            if os.path.exists(dest): # avoid overwriting existing file
+            if os.path.exists(dest):
                 head, tail = os.path.split(dest)
-                name, ext = (tail.rsplit('.', 1) + [""])[:2]
-                if ext:
-                    dest = os.path.join(head, f"{name}_restored.{ext}")
-                else:
-                    dest = os.path.join(head, f"{name}_restored")
-            
-            try: # move back from trash
-                os.rename(transhed_path, dest)
-            except FileNotFoundError: # trashed file missing
-                print("Sorry, the trashed file is missing.", file=sys.stderr)
+                name, ext = os.path.splitext(tail)
+                dest = os.path.join(head, f"{name}_restored{ext}")
+
+            # Support older manifest entries that only stored a filename (relative)
+            if not os.path.isabs(trashed_path):
+                candidate = os.path.join(trash, trashed_path)
+                if os.path.exists(candidate):
+                    trashed_path = candidate
+
+            # If the trashed path doesn't actually exist, bail with a clear message
+            if not os.path.exists(trashed_path):
+                print(f"Sorry, the trashed file is missing:\n  {trashed_path}", file=sys.stderr)
                 return 1
-            except Exception as e: # other errors
-                print(f"Error during restore {e}", file=sys.stderr)
+
+            try:
+                os.rename(trashed_path, dest)
+            except Exception as e:
+                print(f"Error during restore: {e}", file=sys.stderr)
                 return 1
-            
+
             print(f"Restored to: {dest}")
-            return 0 
-    
-    print(f"No trashed item ending with '{name_tail}' found.") 
-    return 0 
+            return 0
+
+    print(f"No trashed item ending with '{name_tail}' found.")
+    return 0
 
 
 """
