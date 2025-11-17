@@ -1,6 +1,6 @@
 # Os-explorer
 
-# Project for ESSD Masters
+# Project for ESSD
 
 A program written in Python to explore files and folders using only the os module.
 
