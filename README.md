@@ -2,6 +2,8 @@
 
 # Project for ESSD
 
+Notion page: https://www.notion.so/OS-Explorer-Exploring-Python-s-OS-Module-2ae1628208e88039b3b5c36a3912392f?source=copy_link
+
 A program written in Python to explore files and folders using only the os module.
 
 It lets you:
