@@ -61,3 +61,75 @@ List files in the current folder:
 ```
 python3 -m src.os_explorer list .
 ```
+
+Add -a to include hidden files:
+
+```
+python3 -m src.os_explorer list -a .
+```
+
+Show file or directory info:
+
+```
+python3 -m src.os_explorer info src/os_explorer.py
+```
+
+Print a directory tree:
+
+```
+python3 -m src.os_explorer tree .
+```
+
+Search for files by name substring (case-insensitive):
+
+```
+python3 -m src.os_explorer search . py
+```
+
+Safe delete (move to .trash)
+
+- Create a test file first:
+
+```
+echo "hello" > test.txt
+```
+
+Then run:
+
+```
+python3 -m src.os_explorer rm test.txt
+```
+
+You will see:
+
+```
+Moved to trash: /.../.trash/1730839825__test.txt
+```
+
+Restore the most recent trashed file:
+
+```
+python3 -m src.os_explorer restore test.txt
+```
+
+Check disk usage:
+
+```
+python3 -m src.os_explorer du .
+```
+
+#### Trash Details
+
+When you use `rm`, the file is not permanently deleted.
+It is moved to a hidden `.trash` folder in the project directory:
+
+```
+.trash/
+├── 1730839825__test.txt
+└── manifest.tsv
+
+```
+
+`manifest.tsv` keeps a record of each “deleted” item with its timestamp and original location.
+
+The `restore` command reads this file and moves the most recent match back to its original spot (or appends `_restored` if that name is taken).
