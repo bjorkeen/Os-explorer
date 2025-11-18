@@ -27,8 +27,6 @@ It lets you:
 
 ### Get the code
 
-- either cloned from GitHub
-
 ```
 git clone https://github.com/bjorkeen/os-explorer.git
 cd os-explorer
@@ -97,19 +95,19 @@ Safe delete (move to .trash)
 echo "hello" > test.txt
 ```
 
-Then run:
+- Then run:
 
 ```
 python3 -m src.os_explorer rm test.txt
 ```
 
-You will see:
+- You will see:
 
 ```
 Moved to trash: /.../.trash/1730839825__test.txt
 ```
 
-Restore the most recent trashed file:
+- Restore the most recent trashed file:
 
 ```
 python3 -m src.os_explorer restore test.txt
